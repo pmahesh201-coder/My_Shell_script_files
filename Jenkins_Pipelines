@@ -1,0 +1,136 @@
+To create agent/node gor master slave
+-----------------------------------------------------------------------------------------------------------------
+node {
+    def repourl = 'https://github.com/Jakiaanjum/spring-framework-petclinic.git'
+    def stagelist =['compile','testing','package']
+      
+        stage('cloning-repo'){
+            git repourl
+        }
+        for (i in stagelist)
+          {
+                stage(i)
+                {
+                    if (i == 'compile')
+                    {
+                        bat 'mvn compile'
+                    }
+                    if (i == 'testing')
+                    {
+                        bat 'mvn test'
+                    }
+                     if (i == 'package')
+                    {
+                        bat 'mvn package'
+                    }
+                }
+              }
+          } 
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+In this pipeline we can deploy by adding the credentials of tomcat and downlaod the plugin deploy to container ---> then wirte the pipeline syntax
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+pipeline {
+    agent any
+       tool
+    stages {
+        stage('Git-Clone') {
+            steps {
+                git 'https://github.com/pmahesh201-coder/spring-framework-petclinic.git'
+            }
+        }
+        stage('package') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+         stage('Sonarqube') {
+            steps {
+                withSonarQubeEnv(installationName:'sonartoken',credentialsId:'sonartoken')
+                {
+                    sh 'mvn clean verify sonar:sonar'
+                }
+            }
+        }
+        stage('nexus') {
+            steps {
+               nexusArtifactUploader artifacts: [[artifactId: 'spring-framework-petclinic', classifier: '', file: 'target/sample-1.0-SNAPSHOT.war', type: 'war']], credentialsId: 'nexus', groupId: 'org.springframework.samples', nexusUrl: '54.211.100.180:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'springpetclinic', version: '4.0.0'
+            }
+        }
+         stage('tomcat') {
+            steps {
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcat', path: '', url: 'http://18.208.182.189:8080/')], contextPath: 'myapp', war: 'target/*.jar'
+            }
+        }
+    }
+}
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+My Jenkins project scripts
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+pipeline {
+    agent any
+
+    stages {
+        stage('git-clone') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Jakiaanjum/spring-framework-petclinic.git'
+            }
+        }
+        stage('package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+         stage('nexus') {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'spring-framework-petclinic',
+                classifier: '',
+                file: '/var/lib/jenkins/workspace/project/target/petclinic.war', 
+                type: 'war']], 
+                credentialsId: 'nexus',
+                groupId: 'org.springframework.samples', 
+                nexusUrl: '15.168.62.175:8081', 
+                nexusVersion: 'nexus3', 
+                protocol: 'http', 
+                repository: 'spring-petclinic', 
+                version: '6.2.8'
+            }
+        }
+         stage('tomcat') {
+            steps {
+                sshagent(['tomcat']){
+                    sh'scp -o StrictHostKeyChecking=no target/petclinic.war mailto:ubuntu@13.208.247.151:home/ubuntu/apache-tomcat-10.1.52/webapps'
+                }
+            }
+        }
+    }
+}
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+pipeline {
+    agent any
+
+    stages {
+        stage('git-clone') {
+            steps {
+                git branch: 'main', url: 'https://github.com/pmahesh201-coder/spring-framework-petclinic.git'
+            }
+        }
+        stage('package') {
+            steps {
+                sh 'mvn package'
+            }
+        }
+         stage('nexus') {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'spring-framework-petclinic', classifier: '', file: '/var/lib/jenkins/workspace/pipeline/target/petclinic.war', type: 'war']], credentialsId: 'nexus', groupId: 'org.springframework.samples', nexusUrl: '13.220.69.136:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'springpetclinic', version: '6.2.8'
+            }
+        }
+        stage('tomcat') {
+            steps {
+                sshagent(['tomcat']){
+                    sh'scp -o StrictHostKeyChecking=no target/petclinic.war ubuntu@ip-172-31-9-18:/home/ubuntu/apache-tomcat-9.0.115/webapps'
+            }
+        }
+      }  
+    }
+}
