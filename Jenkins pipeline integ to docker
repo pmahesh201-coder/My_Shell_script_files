@@ -1,0 +1,38 @@
+pipeline {
+agent any
+tools {
+maven 'mymaven'
+}
+stages {
+stage ("Code") {
+steps {
+git "https://github.com/devops0014/dockerwebapp.git"
+}
+}
+stage ("CQA") {
+steps {
+withSonarQubeEnv("mysonar") {
+sh "mvn clean verify sonar:sonar -Dsonar.projectKey=MyProject"
+}
+}
+}
+stage ("Build") {
+steps {
+sh 'mvn clean package'
+sh 'cp -r target Docker-app'
+}
+}
+stage ("Dockerfile") {
+steps {
+sh 'docker build -t appimage Docker-app'
+sh 'docker build -t dbimage Docker-db'
+}
+}
+stage ("Deploy") {
+steps {
+sh 'docker run -d --name devopsdb -p 3306:3306 dbimage'
+sh 'docker run -itd --name appcont -p 1234:8080 --link $dbcont:mysqlcon appimage'
+}
+}
+}
+}
